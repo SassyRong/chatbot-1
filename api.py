@@ -65,7 +65,7 @@ def search_knowledge(base_prompt, query, limit=10, dense_weight=0.5, history_mes
                 continue
             # 添加其他所有历史消息
             messages.append(msg)
-    
+    # print(messages)
     request_params = {
     "project": project_name,
     "name": collection_name,
@@ -220,7 +220,6 @@ def search_knowledge_and_chat_completion(base_prompt, query, config, history_mes
     # 首先添加系统提示
     messages = [{"role": "system", "content": prompt}]
     
-    # 添加历史消息（跳过系统消息，并过滤最后一个用户消息，因为它将被新的查询替代）
     history_len = len(history_messages)
     if history_len > 0:
         # 过滤并添加有效的历史消息
@@ -228,10 +227,8 @@ def search_knowledge_and_chat_completion(base_prompt, query, config, history_mes
             # 跳过系统消息
             if msg["role"] == "system":
                 continue
-            # 如果是最后一个用户消息且当前正在处理新的用户查询，则跳过
             if i == history_len - 1 and msg["role"] == "user":
                 continue
-            # 添加其他所有历史消息
             messages.append(msg)
     
     # 添加当前用户查询
@@ -242,6 +239,48 @@ def search_knowledge_and_chat_completion(base_prompt, query, config, history_mes
         messages.append({"role": "user", "content": multi_modal_msg})
     else:
         messages.append({"role": "user", "content": query})
-
+    
     # 4.调用chat_completion
     return chat_completion(messages, stream=True, temperature=config["temperature"], max_tokens=config["max_tokens"], model=config["model"], model_version=config["model_version"])
+
+def direct_chat_completion(system_prompt, user_prompt, config, history_messages=[]):
+    """
+    Performs a direct chat completion call without knowledge search or prompt augmentation.
+    Uses the provided system_prompt and user_prompt directly.
+    Handles history similarly to the RAG function if provided.
+    """
+    # 1. Construct messages
+    messages = [{"role": "system", "content": system_prompt}]
+
+    # Add history (optional) - Use similar logic as RAG function if needed
+    history_len = len(history_messages)
+    if history_len > 0:
+        for i, msg in enumerate(history_messages):
+            if msg["role"] == "system":
+                continue
+            messages.append(msg)
+
+    # 2. Add current user prompt
+    # Check if user_prompt could be multimodal (unlikely for online prompt gen, but for generality)
+    if isinstance(user_prompt, list): # Assume list means multimodal content
+         messages.append({"role": "user", "content": user_prompt})
+    else:
+         messages.append({"role": "user", "content": user_prompt})
+
+    # 3. Call chat_completion
+    # Use relevant parts of the config. Assume stream=False for short prompts unless specified.
+    # Extract necessary params from config to avoid passing unrelated ones like limit/dense_weight
+    
+    rsp_txt = chat_completion(
+        message=messages,
+        stream=config.get("stream", False), # Default to False for direct calls, allow override
+        temperature=config.get("temperature", 0.7),
+        max_tokens=config.get("max_tokens", 256), # Sensible default for short prompts
+        model=config["model"],
+        model_version=config["model_version"],
+        return_token_usage=config.get("return_token_usage", True)
+    )
+    rsp = json.loads(rsp_txt)
+    if rsp["code"] != 0:
+        return "", []
+    return rsp["data"]["generated_answer"]
