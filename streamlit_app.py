@@ -372,18 +372,18 @@ elif st.session_state.view_mode == "web_search":
                  st.session_state.recommended_prompt = ""
 
     with copy_col:
-        if st.button("复制Prompt", use_container_width=True, key="copy_rec_prompt",
-                      disabled=st.session_state.online_generating or not st.session_state.recommended_prompt):
-            if st.session_state.recommended_prompt:
-                try:
-                    clipboard.copy(st.session_state.recommended_prompt)
-                    st.toast("✅ Prompt已复制到剪贴板！")
-                except Exception as e:
-                    st.error(f"复制失败: {e}")
-                    st.warning("请确保已安装 `clipboard` 库 (`pip install clipboard`) 并且您的环境支持剪贴板操作。")
-            else:
-                st.warning("没有可复制的Prompt。")
-
+        # if st.button("复制Prompt", use_container_width=True, key="copy_rec_prompt",
+        #               disabled=st.session_state.online_generating or not st.session_state.recommended_prompt):
+        #     if st.session_state.recommended_prompt:
+        #         try:
+        #             clipboard.copy(st.session_state.recommended_prompt)
+        #             st.toast("✅ Prompt已复制到剪贴板！")
+        #         except Exception as e:
+        #             st.error(f"复制失败: {e}")
+        #             st.warning("请确保已安装 `clipboard` 库 (`pip install clipboard`) 并且您的环境支持剪贴板操作。")
+        #     else:
+        #         st.warning("没有可复制的Prompt。")
+        st_copy_to_clipboard(st.session_state.recommended_prompt)
     st.divider()
 
     if st.button("💬 返回对话", key="return_to_chat_from_web", use_container_width=True,
