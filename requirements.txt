@@ -2,3 +2,4 @@ streamlit
 openai
 volcengine
 clipboard
+st-copy-to-clipboard
