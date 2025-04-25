@@ -3,6 +3,7 @@ import streamlit.components.v1 as components
 from api import search_knowledge_and_chat_completion, direct_chat_completion
 import json
 import clipboard
+from st_copy_to_clipboard import st_copy_to_clipboard
 
 # --- Default Config and Base Prompt (Keep yours) ---
 default_config = {
