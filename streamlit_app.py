@@ -75,6 +75,8 @@ if "config" not in st.session_state:
     st.session_state.config = default_config
 if "base_prompt" not in st.session_state:
     st.session_state.base_prompt = base_prompt
+if "generating" not in st.session_state:
+    st.session_state.generating = False
 
 
 # 定义可用的模型和版本
@@ -116,6 +118,7 @@ def toggle_settings():
 # 清空对话历史函数
 def clear_chat_history():
     st.session_state.messages = []
+    st.session_state.generating = False
 
 # 重置提示词函数
 def reset_prompt():
@@ -140,8 +143,8 @@ st.title("大模型实战系统")
 
 # 侧边栏 - 设置和清空对话按钮
 with st.sidebar:
-    st.button("⚙️ 设置", on_click=toggle_settings, use_container_width=True)
-    st.button("🗑️ 清空对话", on_click=clear_chat_history, use_container_width=True)
+    st.button("⚙️ 设置", on_click=toggle_settings, use_container_width=True, disabled=st.session_state.generating)
+    st.button("🗑️ 清空对话", on_click=clear_chat_history, use_container_width=True, disabled=st.session_state.generating)
 
 # 如果显示设置界面
 if st.session_state.show_settings:
@@ -226,45 +229,67 @@ else:
         st.info("👋 欢迎使用大模型实战系统，你可以在设置中修改系统提示词，然后输入您的问题...")
     
     # 聊天输入
-    if query := st.chat_input("请输入您的问题..."):
-        # 显示用户消息
+    if st.session_state.generating:
+        # 从聊天记录中获取最新的用户消息作为当前查询
+        # 确保消息列表不为空且最后一条是用户消息
+        if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+            current_query = st.session_state.messages[-1]["content"]
+
+            # --- 执行 API 调用和流式输出 ---
+            with st.chat_message("assistant"):
+                response_placeholder = st.empty() # 创建一个空占位符用于流式显示
+                full_response = "" # 初始化完整响应字符串
+
+                with st.spinner("生成中..."): # 显示加载指示器
+                    try:
+                        # 获取除最后一条用户消息之外的聊天记录，作为上下文传递给 API
+                        history_for_api = st.session_state.messages[:-1]
+
+                        # 调用你的 API 函数
+                        response_generator = search_knowledge_and_chat_completion(
+                            st.session_state.base_prompt,
+                            current_query,
+                            st.session_state.config,
+                            history_for_api # 传递处理过的历史记录
+                        )
+
+                        # 处理流式响应
+                        if hasattr(response_generator, '__iter__'):
+                            for chunk in response_generator:
+                                full_response += chunk # 累加块到完整响应
+                                response_placeholder.markdown(full_response + "▌") # 在占位符中更新显示，加个光标模拟打字效果
+                            response_placeholder.markdown(full_response) # 显示最终完整响应
+                        else:
+                            # 处理非流式响应或错误情况
+                            full_response = response_generator if response_generator else "抱歉，我无法回答这个问题。"
+                            response_placeholder.markdown(full_response)
+
+                    except Exception as e:
+                        # 处理 API 调用或流式处理中的异常
+                        st.error(f"生成回答时出错: {str(e)}")
+                        full_response = "抱歉，处理您的问题时遇到错误。"
+                        response_placeholder.markdown(full_response)
+
+            # --- 更新状态和历史记录 ---
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+            # --- 重置状态并刷新 ---
+            st.session_state.generating = False
+            st.rerun()
+
+        else:
+            # 如果 generating 为 True 但找不到用户消息，重置状态
+            st.warning("无法找到待处理的用户消息，重置状态。")
+            st.session_state.generating = False
+            st.rerun()
+
+    # --- 聊天输入框 ---
+    if query := st.chat_input("请输入您的问题...", disabled=st.session_state.generating, key="chat_input"):
         with st.chat_message("user"):
             st.write(query)
-        
-        # 添加用户消息到历史
+
         st.session_state.messages.append({"role": "user", "content": query})
-        # 调用API获取回答
-        with st.chat_message("assistant"):
-            response_placeholder = st.empty()
-            full_response = ""
-            
-            with st.spinner("生成中..."):
-                # 获取流式响应生成器
-                response_generator = search_knowledge_and_chat_completion(
-                    st.session_state.base_prompt, 
-                    query, 
-                    st.session_state.config,
-                    st.session_state.messages  # 传递聊天历史
-                )
-                
-                # 如果返回是生成器，进行流式输出
-                if hasattr(response_generator, '__iter__'):
-                    try:
-                        for chunk in response_generator:
-                            full_response += chunk
-                            response_placeholder.markdown(full_response)
-                    except Exception as e:
-                        st.error(f"流式输出错误: {str(e)}")
-                        if not full_response:
-                            full_response = "抱歉，我无法回答这个问题。"
-                        response_placeholder.markdown(full_response)
-                else:
-                    # 如果不是生成器，直接显示
-                    full_response = response_generator
-                    if not full_response or full_response.strip() == "":
-                        full_response = "抱歉，我无法回答这个问题。"
-                    response_placeholder.markdown(full_response)
-        
-        # 添加助手回复到历史
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+        st.session_state.generating = True
+
         st.rerun()
