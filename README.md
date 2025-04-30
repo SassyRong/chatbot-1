@@ -2,7 +2,7 @@
 
 A simple Streamlit app that shows how to build a chatbot using Doubao.
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://chatbot-template.streamlit.app/)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)]([https://chatbot-template.streamlit.app/](https://chatbot-1-xcwq65gmactk29e6yflavs.streamlit.app/))
 
 ### How to run it on your own machine
 
